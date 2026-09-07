@@ -61,14 +61,14 @@ int main(){
 			std::cin.clear();
 			std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 			std::cout<<"again\n";  
-			continue;
+			continue;      //直接重新最近的循环开头
 		}
 		
 	switch(choice){
 		case 1:{
 			
 			std::cout<<Celsius_to_Fahrenheit(get_safe_input("celsius" ));
-			break;
+			break;         //跳出switch不是跳出while
 		}
 		case 2:{
 			std::cout<<meters_to_feet(get_safe_input("meters"));
