@@ -18,15 +18,15 @@ int main(){
 	std::size_t lines{0};
 	
 	while(file.get(c)){
-		++chars;
+		++chars;				//前置++优于后置。
 		if(c=='\n')
 		++lines;
-		if(std::isspace(static_cast<unsigned char>(c))){
+		if(std::isspace(static_cast<unsigned char>(c))){		//显式类型转换
 			now=false;
 			
 		}else if(now==0){
 		
-		        words++;
+		        ++words;
 		        now=true;
 		        }
 			
