@@ -116,6 +116,8 @@ cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');：开启抽水机
 
 5.输入输出流不作为类的成员变量。
 
+6.！！！！！类里面定义变量别用（），会被当成函数声明。
+
 
 
 
