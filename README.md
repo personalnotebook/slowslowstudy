@@ -88,9 +88,17 @@ cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');：开启抽水机
 
 5.isspace()可以判断所有空白符。
 
+-----------------------------图使馆系统---------------------------------
 
+1.类名开头大写
 
+2.类定义后面一定有；号
 
+3.throw std::runtime_error("文件打开失败");
+
+4.ofstream打开文件会清空文件内容，使用追加模式std::ofstream ofe{txt_name,std::ios::app};不清空。ifstream打开文件是只读模式不会清空文件。
+
+5.输入输出流不作为类的成员变量。
 
 
 
