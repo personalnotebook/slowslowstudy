@@ -27,7 +27,10 @@ public:
 		}
 		
 	}
-    
+    friend std::istream& operator>>(std::istream& in,Student& s){		//友元函数，符号重载
+    	in>>s.id>>s.name>>s.math>>s.english>>s.cpp;
+    	return in;
+	}
 
     // 【任务 4】：写一个计算并返回总分的函数
     // 注意：因为计算总分不会修改学生的信息，记得在函数名后面加上 const！
@@ -61,8 +64,9 @@ class School{
 	School(std::string& s):sch_name(s){
 	
 		std::ifstream ifs{sch_name};
-		while(ifs>>std::ws&&!ifs.eof()){
-			Student temp{ifs};
+		Student temp{};
+		while(ifs>>temp){
+			
 			sch.push_back(temp);
 		}
 	}
@@ -115,7 +119,6 @@ class School{
     
     return 0;
 }
-	
 	
 	
 	
