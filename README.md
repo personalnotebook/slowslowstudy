@@ -64,7 +64,7 @@ constexpr 的双重身份：
    
 直接 Return 表达式： return 后面不仅能跟变量，更能直接跟“算术公式”甚至“比较逻辑”。例如 return (a * 2); 或 return age >= 18;，直接免去“赚差价”的临时变量。
 
-if 内部的变量声明（防御性编程）： 写成 if (int a = getNumber())，让变量 a 出生在判断时，并在大括号结束后立刻灰飞烟灭，绝不污染外部环境。
+if 内部的变量声明（ 防御性编程）： 写成 if (int a = getNumber())，让变量 a 出生在判断时，并在大括号结束后立刻灰飞烟灭，绝不污染外部环境。
 
 4. 终极输入防崩模板（防御 cin 罢工）
    
@@ -130,6 +130,7 @@ cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');：开启抽水机
 
 1.在构造函数里不要使用std::vector<std::string>&，要加const，如果你把参数写成 std::vector<std::string>&，这就意味着它需要一个可以修改的左值。你不能把临时变量（右值）传给它
 
+2.map里面的映射是复制一份，不是原来的！！！
 
 
 
