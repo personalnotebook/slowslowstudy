@@ -130,7 +130,7 @@ cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');：开启抽水机
 
 1.在构造函数里不要使用'std::vector<std::string>&'，要加const，如果你把参数写成 'std::vector<std::string>&'，这就意味着它需要一个可以修改的左值。你不能把临时变量（右值）传给它
 
-2.map里面的映射是复制一份，不是原来的！！！<<<<<<<<
+2.map里面的映射是复制一份，不是原来的！！！<<<<<<<<在构造函数里不要使用 `std::vector<std::string>&`，要加 const
 
 
 
