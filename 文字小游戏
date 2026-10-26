@@ -1,0 +1,384 @@
+// #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include <algorithm>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+// #include "doctest.h"
+enum class Gamestate { menu, playing, exit };
+enum class Roomid { none, damen1, woshi2, woshi3, woshi4, chufang5, mishi6 };
+
+// ---- 修1 所有输入统一走 getline，输错不会再死循环 ----
+std::string read_line() {
+  std::string s{};
+  if (!std::getline(std::cin, s)) {  // 输入流结束（Ctrl+D）就退出，避免死循环
+    std::cout << "\n输入结束，退出。\n";
+    std::exit(0);
+  }
+  return s;
+}
+
+int read_int() {  // 不是纯数字就返回 -1
+  std::string s{read_line()};
+  try {
+    size_t pos{};
+    int v{std::stoi(s, &pos)};
+    return pos == s.size() ? v : -1;
+  } catch (const std::exception&) {
+    return -1;
+  }
+}
+
+char read_dir() {  // 只接受单个字符，否则返回 '\0'
+  std::string s{read_line()};
+  return s.size() == 1 ? s[0] : '\0';
+}
+
+class Door {
+ public:
+  Roomid id{Roomid::none};
+  bool locked{false};
+  Door() = default;
+  Door(Roomid a) : id(a) {}
+};
+
+class Room {  // 房间类
+ public:
+  std::string name{};
+  Door n{};
+  Door e{};
+  Door s{};
+  Door w{};
+  std::vector<std::string> things{};
+
+  std::string& roomname() {  // 房间函数
+    return name;
+  }
+  Roomid go_to(char c) {
+    switch (c) {
+      case 'n': {
+        return n.id;
+      }
+      case 'e': {
+        return e.id;
+      }
+      case 's': {
+        return s.id;
+      }
+      case 'w': {
+        return w.id;
+      }
+      default:
+        return Roomid::none;
+    }
+  }
+  std::vector<std::string>& look() { return things; }
+
+  std::vector<char> door() {
+    std::vector<char> d{};
+    if (n.id != Roomid::none) d.push_back('n');
+    if (e.id != Roomid::none) d.push_back('e');
+    if (s.id != Roomid::none) d.push_back('s');
+    if (w.id != Roomid::none) d.push_back('w');
+    return d;
+  }
+
+  Door& get_door(char c) {
+    switch (c) {
+      case 'n': {
+        return n;
+      }
+      case 'e': {
+        return e;
+      }
+      case 's': {
+        return s;
+      }
+      case 'w': {
+        return w;
+      }
+      default: {
+        throw std::invalid_argument("invalid direction");
+      }
+    }
+  }
+
+  bool lock_or_not(char c) { return get_door(c).locked; }
+
+  bool open_door(char c) {
+    // 修4 先校验方向，避免 get_door 抛异常导致程序崩溃
+    if (c != 'n' && c != 'e' && c != 's' && c != 'w') {
+      std::cout << "没有这个方向\n";
+      return false;
+    }
+    Door& d{get_door(c)};
+    if (d.id == Roomid::none) {
+      std::cout << "那边没有门\n";
+      return false;
+    }
+    if (!d.locked) {
+      std::cout << "这扇门没锁\n";
+      return false;
+    }
+    d.locked = false;
+    return true;
+  }
+  Room() = default;
+  Room(std::string name, Roomid n, Roomid e, Roomid s, Roomid w,
+       const std::vector<std::string>& things)
+      : name(name), n(n), e(e), s(s), w(w), things(things) {}
+};
+
+Room damen1{"damen1",       Roomid::none,   Roomid::chufang5,  // 具体房间
+            Roomid::woshi4, Roomid::woshi2, {"nothing"}};
+Room chufang5{"chufang5",   Roomid::none,   Roomid::none,
+              Roomid::none, Roomid::damen1, {"water", "food"}};
+// 修5 往返方向对齐：damen1 的西边是 woshi2，所以 woshi2 的东边才是 damen1
+Room woshi2{"woshi2",       Roomid::none, Roomid::damen1,
+            Roomid::woshi3, Roomid::none,   {"cloth"}};
+// 修5 woshi2 的南边是 woshi3，所以 woshi3 的北边才是 woshi2
+Room woshi3{"woshi3",     Roomid::woshi2, Roomid::woshi4,
+            Roomid::none, Roomid::none,   {"key"}};
+Room woshi4{"woshi4",       Roomid::damen1, Roomid::none,
+            Roomid::mishi6, Roomid::woshi3, {"money"}};
+
+Room mishi6{"mishi6",     Roomid::woshi4, Roomid::none,
+            Roomid::none, Roomid::none,   {"gem"}};
+
+std::map<Roomid, Room> room_map{
+    // 映射
+    {Roomid::damen1, damen1},     {Roomid::woshi2, woshi2},
+    {Roomid::woshi3, woshi3},     {Roomid::woshi4, woshi4},
+    {Roomid::chufang5, chufang5}, {Roomid::mishi6, mishi6}};
+
+class Player {  // 玩家
+ public:
+  std::vector<std::string> bag{};
+
+  Player() = default;  // 玩家定义
+  Player(const std::vector<std::string>& b_things) : bag(b_things) {}
+
+  void take(const std::vector<std::string>& things) {  // 玩家函数
+    for (auto& t : things) {
+      if (t != "nothing") bag.push_back(t);
+    }
+  }
+  std::vector<std::string>& look() { return bag; }
+  void use(Room& r) {
+    // 修3 用 std::find 找物品；erase 之后不再使用失效的迭代器；exit 取消真正生效
+    if (bag.empty()) {
+      std::cout << "你没有东西\n";
+      return;
+    }
+    for (const auto& t : bag) {
+      std::cout << t << '*';
+    }
+    std::cout << "你要使用啥？（输入 exit 取消）\n";
+    std::string temp{read_line()};
+    if (temp == "exit") return;
+    auto it = std::find(bag.begin(), bag.end(), temp);
+    if (it == bag.end()) {
+      std::cout << "你没有这个东西。\n";
+      return;
+    }
+    if (temp == "key") {
+      std::cout << "你要开哪一扇门？\n";
+      if (r.open_door(read_dir())) std::cout << "门开了\n";
+    } else {
+      std::cout << "你使用了" << temp << '\n';
+      bag.erase(it);  // 这是 it 的最后一次使用
+    }
+  }
+};
+
+Roomid save_change(std::string& s) {
+  if (s == "damen1") return Roomid::damen1;
+  if (s == "woshi2") return Roomid::woshi2;
+  if (s == "woshi3")
+    return Roomid::woshi3;  // none, damen1, woshi2, woshi3, woshi4, chufang5,
+                            // mishi6
+  if (s == "woshi4") return Roomid::woshi4;
+  if (s == "chufang5") return Roomid::chufang5;
+  if (s == "mishi6") return Roomid::mishi6;
+  return Roomid::none;
+}
+
+int main() {
+  Gamestate gnow{Gamestate::menu};
+  room_map[Roomid::woshi4].s.locked = true;
+  Roomid nowid{Roomid::damen1};
+  Player me{};
+
+  while (gnow != Gamestate::exit) {
+    switch (gnow) {
+      case Gamestate::menu: {
+        int bigchoice{};
+        std::cout << "1.新游戏    2.读取游戏    3.退出\n";
+        bigchoice = read_int();  // 修1
+        switch (bigchoice) {
+          case 1: {
+            gnow = Gamestate::playing;
+            room_map = {// 映射
+                        {Roomid::damen1, damen1},     {Roomid::woshi2, woshi2},
+                        {Roomid::woshi3, woshi3},     {Roomid::woshi4, woshi4},
+                        {Roomid::chufang5, chufang5}, {Roomid::mishi6, mishi6}};
+            room_map[Roomid::woshi4].s.locked = true;
+            nowid = Roomid::damen1;
+            me.bag.clear();
+            continue;
+          }
+          case 2: {
+            std::ifstream save_file{"savetxt.txt"};
+            std::string save_nowid{};
+            int save_locked{};
+            std::string save_bag{};
+
+            size_t c_bag{};
+            size_t c_room{};
+            size_t c_roombag{};
+            std::string save_roombag{};
+            if (!save_file.is_open()) {
+              std::cout << "打不开存档";
+              gnow = Gamestate::menu;
+              continue;
+            }
+            save_file >> save_nowid >> save_locked >> c_bag;
+            // 修6 先读进临时变量，全部检查通过后才改动游戏状态
+            std::vector<std::string> new_bag{};
+            while (new_bag.size() < c_bag && save_file >> save_bag) {
+              new_bag.push_back(save_bag);
+            }
+            save_file >> c_room;
+            std::vector<std::vector<std::string>> new_things{};
+            while (new_things.size() < c_room && save_file >> c_roombag) {
+              std::vector<std::string> one{};
+              while (one.size() < c_roombag && save_file >> save_roombag) {
+                one.push_back(save_roombag);
+              }
+              new_things.push_back(one);
+            }
+            Roomid new_id{save_change(save_nowid)};
+            if (save_file.fail() || new_id == Roomid::none ||
+                new_bag.size() != c_bag || new_things.size() != c_room ||
+                c_room != room_map.size()) {
+              std::cout << "存档已损坏，读取失败\n";
+              continue;  // gnow 仍是 menu，当前游戏状态一点没动
+            }
+            me.bag = new_bag;
+            for (size_t i = 0; i < new_things.size(); ++i) {
+              room_map[static_cast<Roomid>(i + 1)].things = new_things[i];
+            }
+            nowid = new_id;
+            room_map[Roomid::woshi4].s.locked = (save_locked != 0);
+            gnow = Gamestate::playing;
+            continue;
+          }
+          case 3: {
+            gnow = Gamestate::exit;
+            continue;
+          }
+          default: {  // 修2 输错数字有提示，不再穿透
+            std::cout << "无效选项，请输入 1、2 或 3\n";
+            break;
+          }
+        }
+        break;  // 修2 别漏到 playing
+      }
+      case Gamestate::playing: {
+        Room& now{room_map[nowid]};
+        std::cout << "\nyou are in room" << '*' << now.roomname() << '*'
+                  << "\n你可以:\n1.查看环境\n2.拾取物品\n3.使用物品\n4.移动\n5."
+                     "保存并退出\n ";
+        int choice{};
+        choice = read_int();  // 修1
+        switch (choice) {
+          case 1: {
+            std::vector<std::string>& temp{now.look()};
+            std::cout << "这里有：\n";
+            for (auto& t : temp) {
+              std::cout << t << ' ';
+            }
+            std::cout << "\n这个房间的门是：";
+            std::vector<char> door_temp{now.door()};
+            for (auto& d : door_temp) std::cout << d << ' ';
+            break;
+          }
+          case 2: {
+            std::vector<std::string>& temp{now.look()};
+            me.take(temp);
+            (now.look()).clear();
+            break;
+          }
+          case 3: {
+            me.use(now);
+            break;
+          }
+          case 4: {
+            char s{};
+            std::cout << "\n这个房间的门是：";
+            std::vector<char> door_temp{now.door()};
+            for (auto& d : door_temp) std::cout << d << ' ';
+            std::cout << "\n请问要去哪边？\n";
+            s = read_dir();  // 修1
+            auto it = std::find(door_temp.begin(), door_temp.end(), s);
+            if (it != door_temp.end()) {
+              if (now.lock_or_not(*it) == 1) {
+                std::cout << "锁住了，请使用钥匙\n";
+                break;
+              } else {
+                nowid = now.go_to(s);
+
+                std::cout << "门打开了，你来到了房间：  "
+                          << room_map[nowid].roomname() << '\n';
+              }
+
+            } else
+              std::cout << "这里没门\n";
+            break;
+          }
+          case 5: {
+            std::ofstream save_f("savetxt.txt");
+            if (!save_f.is_open()) {
+              std::cout << "无法写入存档文件。\n";  // 修6 ofstream 会自动建文件，失败是写不进去
+              break;
+            }
+            save_f << room_map[nowid].roomname() << ' '
+                   << room_map[Roomid::woshi4].s.locked << ' ' << me.bag.size()
+                   << ' ';
+            for (const auto& th : me.bag) {
+              save_f << th << ' ';
+            }
+            save_f << room_map.size() << ' ';
+            // 修6 直接遍历 map，不再靠 1..size 的下标去 operator[]
+            for (const auto& kv : room_map) {
+              save_f << kv.second.things.size() << ' ';
+              for (const auto& b : kv.second.things) {
+                save_f << b << ' ';
+              }
+            }
+            if (!save_f) {
+              std::cout << "写入存档失败。\n";
+              break;
+            }
+            std::cout << "游戏已经记录。";
+            gnow = Gamestate::menu;
+
+            break;
+          }
+          default: {
+            std::cout << "无效选项\n";  // 修1
+            break;
+          }
+        }
+        break;
+      }
+      case Gamestate::exit: {  // 修2 补全 switch，消除 -Wswitch 警告
+        break;
+      }
+    }
+  }
+}
